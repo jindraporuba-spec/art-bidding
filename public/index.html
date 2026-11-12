@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Art Bid - Hackathon</title>
+    <!-- Bootstrap 5 CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-dark text-light">
+
+    <!-- Horní lišta -->
+    <nav class="navbar navbar-dark bg-black border-bottom border-secondary px-4 py-3">
+        <span class="navbar-brand mb-0 h1 fw-bold text-warning">🎨 ART BID</span>
+        <div class="d-flex gap-4">
+            <span id="round-info" class="fs-5">Kolo: 3 / 10</span>
+            <span id="player-balance" class="fs-5 text-success fw-bold">Můj zůstatek: 14 500 Kč</span>
+        </div>
+    </nav>
+
+    <!-- Hlavní kontejner -->
+    <div class="container my-4">
+        <div class="row g-4">
+            
+            <!-- LEVÝ PANEL: Žebříček a Historie -->
+            <div class="col-lg-4">
+                <div class="card bg-secondary bg-opacity-10 border-secondary mb-3 text-light">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning">🏆 Žebříček hráčů</h5>
+                        <ul class="list-group list-group-flush bg-transparent">
+                            <li class="list-group-item bg-transparent text-light d-flex justify-content-between">
+                                <span>1. Honza</span> <strong>22 000 Kč</strong>
+                            </li>
+                            <li class="list-group-item bg-transparent text-light d-flex justify-content-between">
+                                <span id="player-name">2. Hráč 1 (Ty)</span> <strong id="sidebar-balance">14 500 Kč</strong>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card bg-secondary bg-opacity-10 border-secondary text-light">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning">📜 Historie příhozů</h5>
+                        <ul id="bid-history" class="list-unstyled small mb-0 text-muted">
+                            <!-- Sem se dynamicky načítá historie -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STŘEDNÍ PANEL: Aktuální aukce -->
+            <div class="col-lg-5">
+                <div class="card bg-secondary bg-opacity-10 border-secondary text-light text-center p-3">
+                    <h5 class="text-warning mb-3">AKTUALNÍ AUKCE</h5>
+                    <img id="art-image" src="" alt="Dílo" class="img-fluid rounded mb-3 border border-secondary" style="max-height: 250px; object-fit: cover;">
+                    <h4 id="art-title" class="fw-bold">Načítání...</h4>
+                    <p id="art-author" class="text-muted mb-1">Autor: ...</p>
+                    <p class="small text-info mb-3">Odhad experta: <span id="art-estimate">...</span></p>
+
+                    <div class="alert alert-dark border-secondary py-2 mb-3">
+                        <span class="d-block small text-muted">AKTUÁLNÍ CENA:</span>
+                        <h2 id="current-price" class="text-success fw-bold mb-0">0 Kč</h2>
+                        <span class="small text-muted">Vede: <span id="highest-bidder">Nikdo</span></span>
+                    </div>
+
+                    <!-- Tlačítka pro přihazování -->
+                    <div class="d-flex justify-content-center gap-2 mb-3">
+                        <button class="btn btn-outline-warning btn-sm" onclick="placeBid(100)">+100 Kč</button>
+                        <button class="btn btn-outline-warning btn-sm" onclick="placeBid(500)">+500 Kč</button>
+                        <button class="btn btn-outline-warning btn-sm" onclick="placeBid(1000)">+1000 Kč</button>
+                    </div>
+                    <button class="btn btn-success w-100 fw-bold py-2" onclick="placeBid(500)">PŘIHODIT</button>
+                </div>
+            </div>
+
+            <!-- PRAVÝ PANEL: Moje galerie -->
+            <div class="col-lg-3">
+                <div class="card bg-secondary bg-opacity-10 border-secondary text-light h-100">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning">🖼️ Moje galerie</h5>
+                        <div id="my-gallery" class="text-muted small">
+                            Zatím nemáš žádné obrazy.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Socket.io klient -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        // Poslouchání aktualizací stavu ze serveru
+        socket.on('update_state', (state) => {
+            // Horní lišta a zůstatky
+            document.getElementById('player-balance').innerText = `Můj zůstatek: ${state.player.balance.toLocaleString()} Kč`;
+            document.getElementById('sidebar-balance').innerText = `${state.player.balance.toLocaleString()} Kč`;
+            document.getElementById('player-name').innerText = `2. ${state.player.name} (Ty)`;
+
+            // Aktuální aukce
+            document.getElementById('art-title').innerText = state.currentArt.title;
+            document.getElementById('art-author').innerText = `Autor: ${state.currentArt.author}`;
+            document.getElementById('art-image').src = state.currentArt.image;
+            document.getElementById('art-estimate').innerText = state.currentArt.estimatedRange;
+            document.getElementById('current-price').innerText = `${state.currentArt.currentBid.toLocaleString()} Kč`;
+            document.getElementById('highest-bidder').innerText = state.currentArt.highestBidder;
+
+            // Historie příhozů
+            const historyList = document.getElementById('bid-history');
+            historyList.innerHTML = '';
+            state.bidHistory.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'mb-1 text-light';
+                li.innerHTML = `> ${item.text} <span class="float-end text-muted small">${item.time}</span>`;
+                historyList.appendChild(li);
+            });
+
+            // Moje galerie
+            const galleryDiv = document.getElementById('my-gallery');
+            if (state.player.gallery.length === 0) {
+                galleryDiv.innerHTML = '<p class="text-muted">Zatím nemáš žádné obrazy.</p>';
+            } else {
+                galleryDiv.innerHTML = '';
+                state.player.gallery.forEach(art => {
+                    galleryDiv.innerHTML += `<div class="border border-secondary p-2 rounded mb-2 bg-black">
+                        <strong>${art.title}</strong><br>Koupeno za: ${art.price} Kč
+                    </div>`;
+                });
+            }
+        });
+
+        // Funkce pro odeslání příhozu na server
+        function placeBid(amount) {
+            socket.emit('place_bid', amount);
+        }
+    </script>
+</body>
+</html>
